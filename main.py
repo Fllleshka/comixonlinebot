@@ -1,4 +1,5 @@
 # Импорт TELEBOT | https://github.com/eternnoir/pyTelegramBotAPI
+import random
 import time
 
 import requests
@@ -84,6 +85,10 @@ def createPagesWithComics(message):
     print("directory_list: ", directory_list)
     # Запускаем цикл формирования комиксов
     j = 0
+    dt = datetime.datetime.now()
+    tm = datetime.time(10, 30)
+    timetopost = datetime.datetime.combine(dt, tm) + datetime.timedelta(days = 1)
+
     while j < len(directory_list):
         # Формируем путь до каждой папке в массиве
         way_file_list = pathcomix + directory_list[j] + "/"
@@ -99,14 +104,18 @@ def createPagesWithComics(message):
             while i < len(file_list):
                 endpath = way_file_list + file_list[i]
                 with open(endpath, 'rb') as f:
-                    path = requests.post(
-                        'https://telegra.ph/upload',
-                        files={directory_list[j]: (directory_list[j], f, 'image/jpg')}
-                        # image/gif, image/jpeg, image/jpg, image/png, video/mp4
-                    ).json()[0]['src']
-                    # Загружаем их в телеграмм
-                    file_list2.append(path)
-                    print(path)
+                    try:
+                        path = requests.post(
+                            'https://telegra.ph/upload',
+                            files={directory_list[j]: (directory_list[j], f, 'image/jpg')}
+                            # image/gif, image/jpeg, image/jpg, image/png, video/mp4
+                        ).json()[0]['src']
+                        # Загружаем их в телеграмм
+                        file_list2.append(path)
+                        print(path)
+                    except Exception as e:
+                        print(e)
+                        time.sleep(5)
                 i = i + 1
                 # Формируем строку для создания страницы
                 content += "<img src='{}'/>".format(path)
@@ -120,8 +129,9 @@ def createPagesWithComics(message):
             bot.send_message(message.chat.id, textmessage)
             print(response['url'])
             now = datetime.datetime.now()
-            nowdatetime = now.strftime("%d-%m-%Y %H:%M")
-            addedNewDatesInSheet(directory_list[j], nowdatetime, response['url'])
+            nowdatetime = now.strftime("%d-%m-%Y %H:%M:%S")
+            timetopost = timetopost + datetime.timedelta(days = 1)
+            addedNewDatesInSheet(directory_list[j], nowdatetime, timetopost.strftime("%d.%m.%Y %H:%M:%S"), response['url'])
             j = j + 1
         else:
             text = "В папке " + directory_list[j] + " нет фаилов"
@@ -139,7 +149,7 @@ def postInChannelRandomComix(message):
     cread_file = "token.json"
     gc = gspread.service_account(cread_file)
     table = gc.open(name_sheet)
-    worksheet = table.worksheet("Лист1")
+    worksheet = table.worksheet("Комиксы")
     dates = worksheet.get_all_records()
     #Формируем кнопки с комиксами
     i = 0
@@ -195,24 +205,26 @@ def workWithGoogleSheets(message):
     cread_file = "token.json"
     gc = gspread.service_account(cread_file)
     table = gc.open(name_sheet)
-    worksheet = table.worksheet("Лист1")
+    worksheet = table.worksheet("Комиксы")
     tableUrl = "Таблица находится по адресу: " + table.url
     bot.send_message(message.chat.id, tableUrl)
     dates = worksheet.get_all_records()
     print(dates)
     pprint(dates)
+
 # Функция добавления данных в GoogleSheets
-def addedNewDatesInSheet(namecomix, dategenerationcomix, url):
+def addedNewDatesInSheet(namecomix, dategenerationcomix, timetopost, url):
     cread_file = "token.json"
     gc = gspread.service_account(cread_file)
     table = gc.open(name_sheet)
-    worksheet = table.worksheet("Лист1")
+    worksheet = table.worksheet("Комиксы")
     newstr = len(worksheet.col_values(1))+1
     newnumber = newstr-1
-    worksheet.update_cell(newstr,1,newnumber)
-    worksheet.update_cell(newstr,2,namecomix)
-    worksheet.update_cell(newstr,3,dategenerationcomix)
-    worksheet.update_cell(newstr,5,url)
+    worksheet.update_cell(newstr, 1, newnumber)
+    worksheet.update_cell(newstr, 2, namecomix)
+    worksheet.update_cell(newstr, 3, dategenerationcomix)
+    worksheet.update_cell(newstr, 4, timetopost)
+    worksheet.update_cell(newstr, 5, url)
 
 # Функция генерации времени поста
 def generationPostDateTime(namecomix):
